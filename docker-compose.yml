@@ -1,0 +1,61 @@
+services:
+  ingestor:
+    build: .
+    depends_on:
+      - llamacpp
+      - neo4j-mcp
+    environment:
+      LLAMACPP_BASE_URL: http://llamacpp:8080/v1
+      GRAPH_MCP_URL: http://neo4j-mcp:8000/mcp/
+    volumes:
+      - ./config:/config:ro
+    restart: unless-stopped
+
+  # Local, tool-calling + vision capable LLM backend for the Agent (ADR 0002).
+  # Requires a compatible GGUF model mounted into /models — point MODEL_FILE
+  # at its filename. If you already have a llama.cpp instance running
+  # elsewhere (e.g. on the host), omit this service by name (`docker compose
+  # up neo4j neo4j-mcp ingestor`) and set LLAMACPP_BASE_URL to point at it.
+  llamacpp:
+    image: ghcr.io/ggml-org/llama.cpp:server
+    command: >
+      --model /models/${MODEL_FILE:-model.gguf}
+      --host 0.0.0.0 --port 8080
+      --jinja --ctx-size 8192
+    volumes:
+      - ./models:/models:ro
+    ports:
+      - "8080:8080"
+
+  # Primed dev/test graph backend (ADR 0002). The ingestor's GraphClient
+  # interface stays generic/swappable; this is just the concrete backend
+  # we expect to use in practice, wired up ahead of time.
+  neo4j:
+    image: neo4j:5-community
+    environment:
+      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:-testpassword}
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - neo4j-data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:7474"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  neo4j-mcp:
+    image: ghcr.io/astral-sh/uv:python3.12-bookworm-slim
+    command: >
+      uvx --from mcp-neo4j-cypher mcp-neo4j-cypher
+      --transport http --server-host 0.0.0.0 --server-port 8000
+      --db-url bolt://neo4j:7687 --username neo4j --password ${NEO4J_PASSWORD:-testpassword}
+    ports:
+      - "8000:8000"
+    depends_on:
+      neo4j:
+        condition: service_healthy
+
+volumes:
+  neo4j-data:

@@ -1,0 +1,43 @@
+[project]
+name = "ingestor"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Nikolaos Kyriazis", email = "nkyriazis@gmail.com" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "google-api-python-client>=2.198.0",
+    "google-auth>=2.55.1",
+    "google-auth-oauthlib>=1.4.0",
+    "httpx>=0.28.1",
+    "mcp>=1.28.1",
+]
+
+[build-system]
+requires = ["uv_build>=0.11.16,<0.12.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "google-api-python-client-stubs>=1.38.0",
+    "mypy>=2.1.0",
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+pythonpath = ["."]
+markers = [
+    "seam1: deterministic Connector/Pipeline orchestration tests (no LLM, no MCP)",
+    "seam2: Agent reasoning tests against the real local llama.cpp server",
+    "seam3: graph MCP contract tests against a real neo4j + mcp-neo4j-cypher backend",
+]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+mypy_path = "src"
+packages = ["ingestor"]
