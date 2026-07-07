@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 from dataclasses import dataclass, field
 from typing import Any
@@ -13,14 +14,19 @@ class FakeAgent:
     """Seam 1 stand-in for ingestor.agent.Agent, so Steps that invoke the
     Agent can be tested without any LLM involved. `fail_times` lets a test
     simulate a Step failing partway through, e.g. to exercise Pipeline
-    resumability.
+    resumability. `delay` lets a test force two concurrent Pipeline.process()
+    calls to overlap, to exercise real concurrency rather than just asserting
+    two coroutines were scheduled.
     """
 
     calls: list[tuple[str, str]] = field(default_factory=list)
     fail_times: int = 0
+    delay: float = 0
 
     async def run(self, system_prompt: str, user_prompt: str) -> str:
         self.calls.append((system_prompt, user_prompt))
+        if self.delay:
+            await asyncio.sleep(self.delay)
         if self.fail_times > 0:
             self.fail_times -= 1
             raise RuntimeError("simulated Agent failure")

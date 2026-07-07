@@ -71,8 +71,16 @@ async def run() -> None:
         while True:
             for importer in importers:
                 importer.pull()
-            for node in connector.poll():
-                await pipeline.process(node, ctx)
+            # No concurrency cap: independent items are fully independent,
+            # and congestion is expected to occur naturally at the LLM
+            # server rather than something our code should guard against.
+            # return_exceptions=True so one item's failure (already visible
+            # via its own step_failed event) can't crash the whole loop or
+            # stop other concurrently-running items from completing.
+            await asyncio.gather(
+                *(pipeline.process(node, ctx) for node in connector.poll()),
+                return_exceptions=True,
+            )
             await asyncio.sleep(POLL_INTERVAL_SECONDS)
 
 
