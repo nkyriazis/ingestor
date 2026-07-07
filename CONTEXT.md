@@ -17,8 +17,16 @@ The LLM-driven reasoning component behind judgment-requiring Steps (image captio
 _Avoid_: Model, LLM (the Agent is the reasoning role; the LLM is just what powers it)
 
 **Connector**:
-A pluggable adapter for one external source (Gmail, Keep, a folder, etc.), responsible for detecting new/changed content — via whichever trigger mechanism fits that source, push or polling — and yielding it as a normalized content tree. Each Connector owns its own checkpoint state internally (e.g. "newest Gmail message ID seen") rather than storing it in the graph: this bookkeeping must be fully automatic and reliable on its own, independent of the graph MCP surface, which the ingestor doesn't control.
+The generic component that turns the Sink's filesystem structure into a normalized Evidence content tree — directory nesting and sort order become `CONTAINED_IN` and position for free. There is exactly one Connector implementation, `FilesystemConnector` (see ADR 0003); it's what the Pipeline actually polls. It owns its own checkpoint state internally (which sink paths it's already handed off), independent of any Importer's checkpoint and independent of the graph MCP surface, which the ingestor doesn't control.
 _Avoid_: Source, Adapter, Integration
+
+**Importer**:
+A pluggable, source-specific fetcher (Gmail, Keep, Google Drive, etc.) that talks to one external API — via whichever trigger mechanism fits that source, push or polling — and materializes new content into the Sink: one directory per item, a `_evidence.json` sidecar recording `kind` and `source_ref` (the pointer back to the origin system — "connecting the trail"), and child files as flat attachments. An Importer owns its own checkpoint against *its API* (e.g. "newest Gmail historyId seen") and has no tree-building responsibility at all — that's the Connector's job, shared across every Importer (see ADR 0003).
+_Avoid_: Connector (an Importer doesn't yield an Evidence tree, so it isn't one)
+
+**Sink**:
+The shared filesystem directory that every Importer writes into and the one Connector reads from — the interchange point that lets N Importers reuse one Connector's tree-building instead of each building its own.
+_Avoid_: Staging area, Buffer
 
 **Evidence**:
 A record of a raw source artifact — an email, a note, an attachment, a slide image — with a pointer back to where it lives (e.g. Gmail message ID, file path). Captures provenance, not meaning. Every node in a source's content tree (container, file, image, text snippet) is its own Evidence record — not just the top-level item — linked to its parent via `CONTAINED_IN`.
