@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Protocol
 
+IMPORTER_RAN = "importer_ran"
+
 
 class Importer(Protocol):
     """Fetches from one external API (Gmail, Keep, Drive, etc.) and

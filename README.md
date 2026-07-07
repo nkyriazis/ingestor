@@ -33,6 +33,12 @@ down — `GMAIL_LABEL` to a label name (not Gmail's internal label id; it's
 resolved for you), `GMAIL_QUERY` to a Gmail search string (the same syntax
 as Gmail's own search box, e.g. `from:someone@example.com newer_than:7d`).
 
+Drive has no equivalent default — set `DRIVE_FOLDERS` to a comma-separated
+list of folder names to turn it on, e.g. `DRIVE_FOLDERS=Journal,Work/Notes`.
+A bare name works as long as it's unambiguous; if you have more than one
+folder with the same name, use a fuller `Parent/Name` path to disambiguate
+(the error message tells you when this is needed).
+
 ## Running
 
 ```

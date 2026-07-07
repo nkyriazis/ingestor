@@ -5,6 +5,7 @@ import json
 from dataclasses import dataclass, field
 from typing import Any
 
+from ingestor.importers.drive import DriveFile
 from ingestor.importers.gmail import GmailMessage
 from ingestor.tools import ToolSpec
 
@@ -43,6 +44,22 @@ class FakeGmailClient:
     def list_new_messages(
         self, checkpoint: str | None
     ) -> tuple[list[GmailMessage], str | None]:
+        self.checkpoints_requested.append(checkpoint)
+        if not self._batches:
+            return [], checkpoint
+        return self._batches.pop(0)
+
+
+class FakeDriveClient:
+    """Seam 1 fake: replaces the real Drive API with pre-scripted batches."""
+
+    def __init__(self, batches: list[tuple[list[DriveFile], str | None]]) -> None:
+        self._batches = list(batches)
+        self.checkpoints_requested: list[str | None] = []
+
+    def list_new_files(
+        self, checkpoint: str | None
+    ) -> tuple[list[DriveFile], str | None]:
         self.checkpoints_requested.append(checkpoint)
         if not self._batches:
             return [], checkpoint

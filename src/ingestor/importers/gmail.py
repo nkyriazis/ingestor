@@ -6,11 +6,11 @@ from typing import Protocol
 
 from ingestor.checkpoint import CheckpointStore
 from ingestor.events import EventBus, default_events
+from ingestor.importers.base import IMPORTER_RAN
 from ingestor.sink import write_sidecar
 
 CHECKPOINT_KEY = "gmail:last_history_id"
 SOURCE_NAME = "gmail"
-IMPORTER_RAN = "importer_ran"
 
 
 @dataclass

@@ -13,6 +13,9 @@ from ingestor.connectors.filesystem import FilesystemConnector
 from ingestor.convert import ConvertStep
 from ingestor.events import EventBus
 from ingestor.extract import ExtractStep
+from ingestor.importers.base import Importer
+from ingestor.importers.drive import DriveImporter
+from ingestor.importers.drive_api import RealDriveClient
 from ingestor.importers.gmail import GmailImporter
 from ingestor.importers.gmail_api import RealGmailClient
 from ingestor.llm import LlamaCppClient
@@ -42,7 +45,7 @@ async def run() -> None:
         model=os.environ.get("LLAMACPP_MODEL", "default"),
     )
     events = EventBus()
-    importers = [
+    importers: list[Importer] = [
         GmailImporter(
             client=RealGmailClient(
                 Path(os.environ["GOOGLE_TOKEN_PATH"]),
@@ -56,6 +59,18 @@ async def run() -> None:
             events=events,
         ),
     ]
+    # Drive has no sane "watch everything" default the way Gmail's inbox is
+    # — it only joins the run once the user has told it which folder(s).
+    drive_folders = [f.strip() for f in os.environ.get("DRIVE_FOLDERS", "").split(",") if f.strip()]
+    if drive_folders:
+        importers.append(
+            DriveImporter(
+                client=RealDriveClient(Path(os.environ["GOOGLE_TOKEN_PATH"]), drive_folders),
+                checkpoints=JsonFileCheckpointStore(STATE_DIR / "drive-checkpoint.json"),
+                sink_root=SINK_ROOT,
+                events=events,
+            )
+        )
     connector = FilesystemConnector(
         sink_root=SINK_ROOT,
         checkpoints=JsonFileCheckpointStore(STATE_DIR / "filesystem-checkpoint.json"),

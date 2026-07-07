@@ -14,6 +14,10 @@ services:
       # See README's "Configuring sources".
       GMAIL_LABEL: ${GMAIL_LABEL:-}
       GMAIL_QUERY: ${GMAIL_QUERY:-}
+      # Comma-separated folder names/paths to watch — unset means Drive
+      # ingestion is off entirely (there's no sane "watch everything"
+      # default). See README's "Configuring sources".
+      DRIVE_FOLDERS: ${DRIVE_FOLDERS:-}
     volumes:
       - ./config:/config:ro
       - ingestor-state:/var/lib/ingestor
