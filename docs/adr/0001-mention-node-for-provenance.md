@@ -1,0 +1,3 @@
+# Mention node mediates Knowledge-to-Evidence provenance
+
+We need every Knowledge node/edge to be traceable back to the Evidence it came from, but without wiring a direct edge per fact — a single email can yield a dozen entities and relationships, and direct edges would flood the graph. We considered linking each Knowledge node/edge directly to its Evidence (simplest, but doesn't scale) versus introducing a `Mention` node per ingestion run that connects once to the Evidence and fans out to the Knowledge it touched. We chose the `Mention` node: it keeps provenance a bounded 2-hop path, keeps Knowledge nodes clean of per-fact evidence edges, and gives us a place to attach extraction metadata (confidence, model, timestamp) later without touching the core model.
