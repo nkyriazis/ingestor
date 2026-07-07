@@ -60,7 +60,11 @@ async def run() -> None:
 
     async with connect_mcp(os.environ["GRAPH_MCP_URL"]) as session:
         graph = McpGraphClient(session)
-        agent = Agent(llm, tools=[canonicalization_tool_spec(graph), *await mcp_agent_tools(session)])
+        agent = Agent(
+            llm,
+            tools=[canonicalization_tool_spec(graph), *await mcp_agent_tools(session)],
+            events=events,
+        )
         pipeline = Pipeline(steps=[ConvertStep(), ExtractStep()], progress=progress, events=events)
         ctx = PipelineContext(graph=graph, llm=llm, agent=agent)
 
