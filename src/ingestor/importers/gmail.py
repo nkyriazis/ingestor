@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Protocol
 
 from ingestor.checkpoint import CheckpointStore
-from ingestor.evidence import EvidenceNode
+from ingestor.sink import write_sidecar
 
-CHECKPOINT_KEY = "gmail:last_message_id"
+CHECKPOINT_KEY = "gmail:last_history_id"
 
 
 @dataclass
@@ -37,37 +38,29 @@ class GmailClient(Protocol):
     ) -> tuple[list[GmailMessage], str | None]: ...
 
 
-class GmailConnector:
-    """Polling Connector for Gmail (see ADR 0001's sibling design decision:
-    polling over push, since personal-scale latency doesn't matter).
+class GmailImporter:
+    """Fetches new Gmail messages (polling — see ADR 0001's sibling trigger
+    decision) and materializes each into the Sink for the one
+    FilesystemConnector to pick up; builds no Evidence tree itself (see
+    ADR 0003).
     """
 
-    def __init__(self, client: GmailClient, checkpoints: CheckpointStore) -> None:
+    def __init__(self, client: GmailClient, checkpoints: CheckpointStore, sink_root: Path) -> None:
         self._client = client
         self._checkpoints = checkpoints
+        self._sink_root = sink_root
 
-    def poll(self) -> list[EvidenceNode]:
+    def pull(self) -> None:
         checkpoint = self._checkpoints.get(CHECKPOINT_KEY)
         messages, next_checkpoint = self._client.list_new_messages(checkpoint)
+        for message in messages:
+            self._write(message)
         if next_checkpoint is not None and next_checkpoint != checkpoint:
             self._checkpoints.set(CHECKPOINT_KEY, next_checkpoint)
-        return [self._to_evidence(message) for message in messages]
 
-    def _to_evidence(self, message: GmailMessage) -> EvidenceNode:
-        email_id = f"gmail:{message.id}"
-        return EvidenceNode(
-            id=email_id,
-            kind="email",
-            source_ref=message.id,
-            text=message.body_text,
-            children=[
-                EvidenceNode(
-                    id=f"{email_id}:attachment:{index}",
-                    kind="attachment",
-                    source_ref=attachment.filename,
-                    raw_bytes=attachment.data,
-                    filename=attachment.filename,
-                )
-                for index, attachment in enumerate(message.attachments)
-            ],
-        )
+    def _write(self, message: GmailMessage) -> None:
+        item_dir = self._sink_root / "gmail" / message.id
+        write_sidecar(item_dir, kind="email", source_ref=message.id)
+        (item_dir / "00-body.txt").write_text(message.body_text, encoding="utf-8")
+        for index, attachment in enumerate(message.attachments, start=1):
+            (item_dir / f"{index:02d}-{attachment.filename}").write_bytes(attachment.data)

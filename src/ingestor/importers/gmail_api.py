@@ -7,7 +7,7 @@ from typing import Any
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 
-from ingestor.connectors.gmail import GmailAttachment, GmailMessage
+from ingestor.importers.gmail import GmailAttachment, GmailMessage
 
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 

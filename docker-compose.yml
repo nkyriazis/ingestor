@@ -9,6 +9,7 @@ services:
       GRAPH_MCP_URL: http://neo4j-mcp:8000/mcp/
     volumes:
       - ./config:/config:ro
+      - ingestor-state:/var/lib/ingestor
     restart: unless-stopped
 
   # Local, tool-calling + vision capable LLM backend for the Agent (ADR 0002).
@@ -59,3 +60,4 @@ services:
 
 volumes:
   neo4j-data:
+  ingestor-state:

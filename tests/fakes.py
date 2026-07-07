@@ -4,7 +4,7 @@ import json
 from dataclasses import dataclass, field
 from typing import Any
 
-from ingestor.connectors.gmail import GmailMessage
+from ingestor.importers.gmail import GmailMessage
 from ingestor.tools import ToolSpec
 
 
