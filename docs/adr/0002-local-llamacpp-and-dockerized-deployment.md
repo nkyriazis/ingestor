@@ -1,0 +1,7 @@
+# Ingestor runs as a dockerized service; the Agent's LLM is a local llama.cpp server
+
+The design left two things open: how the whole pipeline actually runs continuously, and what powers the Agent. We're settling both together, since they're the same piece of infrastructure. The ingestor is a dockerized service, brought up via `docker compose`. The Agent talks to a local llama.cpp server (OpenAI-compatible `/v1/chat/completions`, tool-calling, vision-capable model) over HTTP as a sibling service in the same compose stack, rather than a hosted API (Anthropic, OpenAI, etc.).
+
+We considered a hosted LLM API — simpler client code, no local GPU/model management — but rejected it: this is a personal, always-on ingestion pipeline, and a local model avoids per-token cost, avoids sending personal email/note content to a third party, and doesn't depend on external API availability. It only works because the chosen model class supports both tool calling and vision natively over the OpenAI-compatible API, which the Agent design requires (tool calls to reach the graph MCP; vision for slide/image captioning).
+
+The graph MCP itself remains externally supplied/configured in production (unchanged from the original design) — the ingestor doesn't bundle a specific graph backend. For local development and the MCP-contract test seam, though, neo4j plus the `mcp-neo4j-cypher` MCP server are "primed" as docker-compose services, since that's the backend expected to be used in practice.

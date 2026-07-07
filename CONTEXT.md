@@ -13,7 +13,7 @@ An atomic, resumable unit of work within the Pipeline (e.g. Convert, Canonicaliz
 _Avoid_: Stage, Task
 
 **Agent**:
-The LLM-driven reasoning component behind judgment-requiring Steps (image captioning, Canonicalization's reuse-vs-create decision, Knowledge extraction). Where a Step needs to write to the graph, the Agent performs that write itself by calling the MCP's tools directly — the Agent is the seam between semantic judgment and mechanical graph writes, not the Pipeline. Tested independent of any specific graph MCP, against a fake/generic tool surface.
+The LLM-driven reasoning component behind judgment-requiring Steps (image captioning, Canonicalization's reuse-vs-create decision, Knowledge extraction). Where a Step needs to write to the graph, the Agent performs that write itself by calling the MCP's tools directly — the Agent is the seam between semantic judgment and mechanical graph writes, not the Pipeline. Tested independent of any specific graph MCP, against a fake/generic tool surface. Backed by a local, self-hosted llama.cpp server (OpenAI-compatible tool-calling API, vision-capable model) — see ADR 0002 — not a hosted cloud API.
 _Avoid_: Model, LLM (the Agent is the reasoning role; the LLM is just what powers it)
 
 **Connector**:
