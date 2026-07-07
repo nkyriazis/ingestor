@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Literal
+
+EvidenceKind = Literal["email", "attachment", "slide", "image"]
 
 
 @dataclass
@@ -14,7 +17,7 @@ class EvidenceNode:
     """
 
     id: str
-    kind: str
+    kind: EvidenceKind
     source_ref: str
     text: str | None = None
     children: list[EvidenceNode] = field(default_factory=list)

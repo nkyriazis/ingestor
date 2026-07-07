@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Protocol
+
+from ingestor import _jsonfile
 
 
 class CheckpointStore(Protocol):
@@ -33,14 +34,10 @@ class JsonFileCheckpointStore:
         self._path = path
 
     def get(self, key: str) -> str | None:
-        return self._read().get(key)
+        value = _jsonfile.read(self._path).get(key)
+        return str(value) if value is not None else None
 
     def set(self, key: str, value: str) -> None:
-        data = self._read()
+        data = _jsonfile.read(self._path)
         data[key] = value
-        self._path.write_text(json.dumps(data))
-
-    def _read(self) -> dict[str, str]:
-        if not self._path.exists():
-            return {}
-        return dict(json.loads(self._path.read_text()))
+        _jsonfile.write(self._path, data)

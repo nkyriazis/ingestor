@@ -29,6 +29,17 @@ async def _extract(graph: McpGraphClient, tools: list[ToolSpec], node: EvidenceN
     )
 
 
+async def _cleanup(graph: McpGraphClient) -> None:
+    await graph.write_cypher(
+        "MATCH (m:Mention)-[:ABOUT]->(e:Evidence) "
+        "WHERE e.id STARTS WITH 'seam-canon:' DETACH DELETE m"
+    )
+    await graph.write_cypher("MATCH (e:Evidence) WHERE e.id STARTS WITH 'seam-canon:' DETACH DELETE e")
+    await graph.write_cypher(
+        "MATCH (k:Knowledge) WHERE k.name CONTAINS $surname DETACH DELETE k", {"surname": SURNAME}
+    )
+
+
 async def test_a_near_miss_name_in_a_second_item_reuses_the_first_items_person_node() -> None:
     async with connect_mcp(GRAPH_MCP_URL) as session:
         graph = McpGraphClient(session)
@@ -63,17 +74,7 @@ async def test_a_near_miss_name_in_a_second_item_reuses_the_first_items_person_n
 
             assert len(rows) == 1, f"expected the second mention to reuse one Person node, got {rows}"
         finally:
-            await graph.write_cypher(
-                "MATCH (m:Mention)-[:ABOUT]->(e:Evidence) "
-                "WHERE e.id STARTS WITH 'seam-canon:' DETACH DELETE m"
-            )
-            await graph.write_cypher(
-                "MATCH (e:Evidence) WHERE e.id STARTS WITH 'seam-canon:' DETACH DELETE e"
-            )
-            await graph.write_cypher(
-                "MATCH (k:Knowledge) WHERE k.name CONTAINS $surname DETACH DELETE k",
-                {"surname": SURNAME},
-            )
+            await _cleanup(graph)
 
 
 async def test_an_unrelated_name_in_a_second_item_does_not_get_merged_into_the_first() -> None:
@@ -112,14 +113,4 @@ async def test_an_unrelated_name_in_a_second_item_does_not_get_merged_into_the_f
                 f"expected two distinct, unrelated Person nodes to remain separate, got {rows}"
             )
         finally:
-            await graph.write_cypher(
-                "MATCH (m:Mention)-[:ABOUT]->(e:Evidence) "
-                "WHERE e.id STARTS WITH 'seam-canon:' DETACH DELETE m"
-            )
-            await graph.write_cypher(
-                "MATCH (e:Evidence) WHERE e.id STARTS WITH 'seam-canon:' DETACH DELETE e"
-            )
-            await graph.write_cypher(
-                "MATCH (k:Knowledge) WHERE k.name CONTAINS $surname DETACH DELETE k",
-                {"surname": SURNAME},
-            )
+            await _cleanup(graph)

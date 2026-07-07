@@ -13,6 +13,10 @@ pytestmark = [pytest.mark.seam3, pytest.mark.asyncio]
 GRAPH_MCP_URL = os.environ.get("GRAPH_MCP_URL", "http://localhost:8000/mcp/")
 
 
+async def _cleanup(graph: McpGraphClient) -> None:
+    await graph.write_cypher("MATCH (n) WHERE n.id STARTS WITH 'seam3:' DETACH DELETE n")
+
+
 async def test_write_then_read_round_trips_through_the_real_backend() -> None:
     async with connect_mcp(GRAPH_MCP_URL) as session:
         graph = McpGraphClient(session)
@@ -29,7 +33,7 @@ async def test_write_then_read_round_trips_through_the_real_backend() -> None:
 
             assert rows == [{"text": "hello"}]
         finally:
-            await graph.write_cypher("MATCH (n) WHERE n.id STARTS WITH 'seam3:' DETACH DELETE n")
+            await _cleanup(graph)
 
 
 async def test_evidence_tree_persists_contained_in_edges_with_position() -> None:
@@ -63,7 +67,7 @@ async def test_evidence_tree_persists_contained_in_edges_with_position() -> None
                 {"id": "seam3:child-1", "position": 1},
             ]
         finally:
-            await graph.write_cypher("MATCH (n) WHERE n.id STARTS WITH 'seam3:' DETACH DELETE n")
+            await _cleanup(graph)
 
 
 async def test_a_specific_nested_image_is_directly_addressable_by_position() -> None:
@@ -109,7 +113,7 @@ async def test_a_specific_nested_image_is_directly_addressable_by_position() -> 
 
             assert rows == [{"id": "seam3:file-1:image-0", "text": "a"}]
         finally:
-            await graph.write_cypher("MATCH (n) WHERE n.id STARTS WITH 'seam3:' DETACH DELETE n")
+            await _cleanup(graph)
 
 
 async def test_re_writing_the_same_tree_does_not_duplicate_nodes() -> None:
@@ -128,4 +132,4 @@ async def test_re_writing_the_same_tree_does_not_duplicate_nodes() -> None:
 
             assert rows == [{"text": "v2"}]
         finally:
-            await graph.write_cypher("MATCH (n) WHERE n.id STARTS WITH 'seam3:' DETACH DELETE n")
+            await _cleanup(graph)

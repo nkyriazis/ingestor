@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Protocol
+
+from ingestor import _jsonfile
 
 
 class ProgressStore(Protocol):
@@ -35,16 +36,11 @@ class JsonFileProgressStore:
         self._path = path
 
     def completed_steps(self, item_id: str) -> set[str]:
-        return set(self._read().get(item_id, []))
+        return set(_jsonfile.read(self._path).get(item_id, []))
 
     def mark_completed(self, item_id: str, step_name: str) -> None:
-        data = self._read()
+        data = _jsonfile.read(self._path)
         steps = set(data.get(item_id, []))
         steps.add(step_name)
         data[item_id] = sorted(steps)
-        self._path.write_text(json.dumps(data))
-
-    def _read(self) -> dict[str, list[str]]:
-        if not self._path.exists():
-            return {}
-        return dict(json.loads(self._path.read_text()))
+        _jsonfile.write(self._path, data)

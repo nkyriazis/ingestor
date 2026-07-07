@@ -14,12 +14,14 @@ Graph schema you must follow:
   don't duplicate a node.
 - Relationships between Knowledge nodes: any UPPER_SNAKE_CASE type that \
   describes the relationship (e.g. WORKS_ON, KNOWS), created with MERGE.
-- Mention node: label `Mention`, a fresh unique `id` you choose. Create \
-  exactly one Mention node per call, linked with \
-  `(:Mention)-[:ABOUT]->(:Evidence {id: <the Evidence id you were given>})` \
-  and `(:Mention)-[:TOUCHED]->(:Knowledge {...})` to every Knowledge node you \
-  created or reused. This is how provenance stays traceable without a direct \
-  edge from every fact to its Evidence (see the Mention design).
+- Mention node: label `Mention`, `id` set to EXACTLY the "Mention id" value \
+  you are given below — never invent your own. Use MERGE on that `id`, so a \
+  retried call re-merges the same Mention rather than creating a duplicate. \
+  Link it with `(:Mention)-[:ABOUT]->(:Evidence {id: <the Evidence id you \
+  were given>})` and `(:Mention)-[:TOUCHED]->(:Knowledge {...})` to every \
+  Knowledge node you created or reused. This is how provenance stays \
+  traceable without a direct edge from every fact to its Evidence (see the \
+  Mention design).
 
 Process, in order:
 1. Read the Evidence text you're given.
@@ -40,7 +42,20 @@ more tools after that.
 
 
 def build_extraction_prompt(node: EvidenceNode) -> str:
-    return f"Evidence id: {node.id}\n\nContent:\n{node.text or ''}"
+    return (
+        f"Evidence id: {node.id}\n"
+        f"Mention id: {mention_id_for(node)}\n\n"
+        f"Content:\n{node.text or ''}"
+    )
+
+
+def mention_id_for(node: EvidenceNode) -> str:
+    """Deterministic, derived from the Evidence id rather than freely chosen
+    by the Agent — so a retried extraction re-merges the same Mention
+    instead of minting a duplicate (see ingestor.progress: retries must be
+    safe to repeat).
+    """
+    return f"mention:{node.id}"
 
 
 class ExtractStep:

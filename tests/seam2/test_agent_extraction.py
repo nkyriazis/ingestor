@@ -7,7 +7,7 @@ import pytest
 from ingestor.agent import Agent
 from ingestor.canonicalization import canonicalization_tool_spec
 from ingestor.evidence import EvidenceNode
-from ingestor.extract import EXTRACTION_SYSTEM_PROMPT, build_extraction_prompt
+from ingestor.extract import EXTRACTION_SYSTEM_PROMPT, build_extraction_prompt, mention_id_for
 from ingestor.llm import LlamaCppClient
 from tests.fakes import FakeGraphClient, fake_mcp_tool_specs
 
@@ -42,6 +42,30 @@ async def test_extracts_a_person_and_links_a_mention_to_the_evidence() -> None:
     assert "papadopoulos" in written or "nikos" in written
     assert "mention" in written
     assert node.id.lower() in written, "Mention should link ABOUT the given Evidence id"
+    assert mention_id_for(node) in written, "Mention id must be the deterministic one, not invented"
+
+
+async def test_a_retried_extraction_reuses_the_same_mention_id() -> None:
+    graph = FakeGraphClient()
+    node = EvidenceNode(
+        id="gmail:test-5",
+        kind="email",
+        source_ref="test-5",
+        text="Elena Marchetti will own the Q4 marketing campaign.",
+    )
+    expected_mention_id = mention_id_for(node)
+
+    await _agent(graph).run(EXTRACTION_SYSTEM_PROMPT, build_extraction_prompt(node))
+    first_run_calls = list(graph.write_calls)
+    await _agent(graph).run(EXTRACTION_SYSTEM_PROMPT, build_extraction_prompt(node))
+    second_run_calls = graph.write_calls[len(first_run_calls) :]
+
+    first_written = " ".join(f"{c.query} {c.params}" for c in first_run_calls)
+    second_written = " ".join(f"{c.query} {c.params}" for c in second_run_calls)
+    assert expected_mention_id in first_written
+    assert expected_mention_id in second_written, (
+        "a retried extraction must MERGE the same deterministic Mention id, not mint a new one"
+    )
 
 
 async def test_checks_canonicalization_candidates_before_minting_a_similar_name() -> None:

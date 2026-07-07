@@ -5,12 +5,12 @@ Ingests information from multiple personal sources (email, notes, attachments) i
 ## Language
 
 **Pipeline**:
-The deterministic orchestration engine that runs each Evidence item through a sequence of Steps (fetch → convert → canonicalize → extract → write), tracking per-item progress internally so a failure resumes at the last completed Step instead of restarting. The Pipeline itself is plain, reusable infrastructure with no awareness of LLMs — only specific Steps happen to call one.
+The deterministic orchestration engine that runs each Evidence item through a sequence of Steps (Convert, then Extract), tracking per-item progress internally so a failure resumes at the last completed Step instead of restarting. The Pipeline itself is plain, reusable infrastructure with no awareness of LLMs — only specific Steps happen to call one. Canonicalization is not its own Step — it's a tool the Agent calls per-entity during Extract (see Canonicalization) — and neither is Write: Convert writes the mechanical Evidence tree itself, while Extract's Agent performs Knowledge/Mention writes itself as part of its reasoning.
 _Avoid_: Workflow, Orchestrator
 
 **Step**:
-An atomic, resumable unit of work within the Pipeline (e.g. Convert, Canonicalize, Extract). Steps are shared across every Connector and content type — a Connector only supplies raw content; everything downstream of it is source-agnostic and reusable.
-_Avoid_: Stage, Task
+An atomic, resumable unit of work within the Pipeline (Convert, Extract). Steps are shared across every Connector and content type — a Connector only supplies raw content; everything downstream of it is source-agnostic and reusable.
+_Avoid_: Stage, Task, Canonicalize/Write as Steps (see Pipeline)
 
 **Agent**:
 The LLM-driven reasoning component behind judgment-requiring Steps (image captioning, Canonicalization's reuse-vs-create decision, Knowledge extraction). Where a Step needs to write to the graph, the Agent performs that write itself by calling the MCP's tools directly — the Agent is the seam between semantic judgment and mechanical graph writes, not the Pipeline. Tested independent of any specific graph MCP, against a fake/generic tool surface. Backed by a local, self-hosted llama.cpp server (OpenAI-compatible tool-calling API, vision-capable model) — see ADR 0002 — not a hosted cloud API.
