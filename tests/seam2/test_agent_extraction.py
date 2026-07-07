@@ -67,3 +67,22 @@ async def test_thin_content_produces_no_writes() -> None:
     await _agent(graph).run(EXTRACTION_SYSTEM_PROMPT, build_extraction_prompt(node))
 
     assert graph.write_calls == []
+
+
+async def test_extraction_from_a_converted_attachment_mentions_the_attachments_own_evidence_id() -> (
+    None
+):
+    graph = FakeGraphClient()
+    attachment = EvidenceNode(
+        id="gmail:test-4:attachment:0",
+        kind="attachment",
+        source_ref="notes.docx",
+        filename="notes.docx",
+        text="Maria Ionescu will own the vendor contract renewal.",
+    )
+
+    await _agent(graph).run(EXTRACTION_SYSTEM_PROMPT, build_extraction_prompt(attachment))
+
+    written = " ".join(f"{c.query} {c.params}" for c in graph.write_calls).lower()
+    assert "maria" in written or "ionescu" in written
+    assert attachment.id.lower() in written

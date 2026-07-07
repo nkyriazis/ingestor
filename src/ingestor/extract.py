@@ -44,15 +44,19 @@ def build_extraction_prompt(node: EvidenceNode) -> str:
 
 
 class ExtractStep:
-    """Invokes the Agent to extract Knowledge from an Evidence node's
-    content, canonicalize against what's already known, and write both the
-    Knowledge and its Mention provenance — see CONTEXT.md's Agent entry: the
-    Agent performs this write itself, not the Pipeline.
+    """Invokes the Agent to extract Knowledge from every Evidence node's
+    content in the tree (the top-level item and every child — an
+    attachment's Knowledge should be Mentioned via its own Evidence node, not
+    folded into its parent email's), canonicalize against what's already
+    known, and write both the Knowledge and its Mention provenance — see
+    CONTEXT.md's Agent entry: the Agent performs this write itself, not the
+    Pipeline.
     """
 
     name = "extract"
 
     async def run(self, node: EvidenceNode, ctx: PipelineContext) -> None:
-        if not node.text:
-            return
-        await ctx.agent.run(EXTRACTION_SYSTEM_PROMPT, build_extraction_prompt(node))
+        if node.text:
+            await ctx.agent.run(EXTRACTION_SYSTEM_PROMPT, build_extraction_prompt(node))
+        for child in node.children:
+            await self.run(child, ctx)

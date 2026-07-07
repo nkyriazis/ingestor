@@ -18,3 +18,5 @@ class EvidenceNode:
     source_ref: str
     text: str | None = None
     children: list[EvidenceNode] = field(default_factory=list)
+    raw_bytes: bytes | None = None
+    filename: str | None = None

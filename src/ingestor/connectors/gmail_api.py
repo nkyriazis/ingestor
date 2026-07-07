@@ -7,7 +7,7 @@ from typing import Any
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 
-from ingestor.connectors.gmail import GmailMessage
+from ingestor.connectors.gmail import GmailAttachment, GmailMessage
 
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 
@@ -74,7 +74,28 @@ class RealGmailClient:
             .get(userId="me", id=message_id, format="full")
             .execute()
         )
-        return GmailMessage(id=message_id, body_text=_extract_body_text(dict(raw["payload"])))
+        payload = dict(raw["payload"])
+        return GmailMessage(
+            id=message_id,
+            body_text=_extract_body_text(payload),
+            attachments=self._fetch_attachments(message_id, payload),
+        )
+
+    def _fetch_attachments(
+        self, message_id: str, payload: dict[str, Any]
+    ) -> list[GmailAttachment]:
+        attachments = []
+        for filename, attachment_id in _iter_attachment_parts(payload):
+            raw = (
+                self._service.users()
+                .messages()
+                .attachments()
+                .get(userId="me", messageId=message_id, id=attachment_id)
+                .execute()
+            )
+            data = base64.urlsafe_b64decode(raw["data"])
+            attachments.append(GmailAttachment(filename=filename, data=data))
+        return attachments
 
 
 def _extract_body_text(payload: dict[str, Any]) -> str:
@@ -85,3 +106,12 @@ def _extract_body_text(payload: dict[str, Any]) -> str:
         if text:
             return text
     return ""
+
+
+def _iter_attachment_parts(payload: dict[str, Any]) -> list[tuple[str, str]]:
+    found = []
+    if payload.get("filename") and payload.get("body", {}).get("attachmentId"):
+        found.append((payload["filename"], payload["body"]["attachmentId"]))
+    for part in payload.get("parts", []):
+        found.extend(_iter_attachment_parts(part))
+    return found

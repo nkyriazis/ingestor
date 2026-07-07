@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Protocol
 
 from ingestor.checkpoint import CheckpointStore
@@ -10,9 +10,16 @@ CHECKPOINT_KEY = "gmail:last_message_id"
 
 
 @dataclass
+class GmailAttachment:
+    filename: str
+    data: bytes
+
+
+@dataclass
 class GmailMessage:
     id: str
     body_text: str
+    attachments: list[GmailAttachment] = field(default_factory=list)
 
 
 class GmailClient(Protocol):
@@ -44,12 +51,23 @@ class GmailConnector:
         messages, next_checkpoint = self._client.list_new_messages(checkpoint)
         if next_checkpoint is not None and next_checkpoint != checkpoint:
             self._checkpoints.set(CHECKPOINT_KEY, next_checkpoint)
-        return [
-            EvidenceNode(
-                id=f"gmail:{message.id}",
-                kind="email",
-                source_ref=message.id,
-                text=message.body_text,
-            )
-            for message in messages
-        ]
+        return [self._to_evidence(message) for message in messages]
+
+    def _to_evidence(self, message: GmailMessage) -> EvidenceNode:
+        email_id = f"gmail:{message.id}"
+        return EvidenceNode(
+            id=email_id,
+            kind="email",
+            source_ref=message.id,
+            text=message.body_text,
+            children=[
+                EvidenceNode(
+                    id=f"{email_id}:attachment:{index}",
+                    kind="attachment",
+                    source_ref=attachment.filename,
+                    raw_bytes=attachment.data,
+                    filename=attachment.filename,
+                )
+                for index, attachment in enumerate(message.attachments)
+            ],
+        )

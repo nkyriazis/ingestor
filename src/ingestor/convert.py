@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from ingestor.documents import convert_document_to_text
 from ingestor.evidence import EvidenceNode
 from ingestor.graph import GraphClient
 from ingestor.pipeline import PipelineContext
@@ -41,14 +42,22 @@ class EvidenceWriter:
 
 
 class ConvertStep:
-    """Turns a raw Evidence node's bytes into ingestable content and writes
-    the resulting Evidence tree to the graph. For plain text (e.g. an email
-    body), there's nothing to convert — the walking skeleton scope (issue #2)
-    covers only this case; document/image conversion are added in later
-    issues without changing this Step's shape.
+    """Turns each raw Evidence node's bytes into ingestable content and
+    writes the resulting Evidence tree to the graph. Plain text (e.g. an
+    email body) needs no conversion; document attachments are converted via
+    markitdown. Image/slide-deck structure discovery is added by a later
+    issue without changing this Step's shape.
     """
 
     name = "convert"
 
     async def run(self, node: EvidenceNode, ctx: PipelineContext) -> None:
+        _convert_tree(node)
         await EvidenceWriter(ctx.graph).write(node)
+
+
+def _convert_tree(node: EvidenceNode) -> None:
+    if node.text is None and node.raw_bytes is not None:
+        node.text = convert_document_to_text(node.raw_bytes, node.filename or "")
+    for child in node.children:
+        _convert_tree(child)

@@ -3,7 +3,12 @@ from __future__ import annotations
 import pytest
 
 from ingestor.checkpoint import InMemoryCheckpointStore
-from ingestor.connectors.gmail import CHECKPOINT_KEY, GmailConnector, GmailMessage
+from ingestor.connectors.gmail import (
+    CHECKPOINT_KEY,
+    GmailAttachment,
+    GmailConnector,
+    GmailMessage,
+)
 from tests.fakes import FakeGmailClient
 
 pytestmark = pytest.mark.seam1
@@ -47,6 +52,26 @@ def test_second_poll_reuses_the_stored_checkpoint_and_never_reingests() -> None:
     assert [node.id for node in first] == ["gmail:m1"]
     assert second == []
     assert client.checkpoints_requested == [None, "hist-1"]
+
+
+def test_attachments_become_child_evidence_nodes_contained_in_the_email() -> None:
+    message = GmailMessage(
+        id="m1",
+        body_text="see attached",
+        attachments=[
+            GmailAttachment(filename="notes.docx", data=b"docx-bytes"),
+            GmailAttachment(filename="budget.pdf", data=b"pdf-bytes"),
+        ],
+    )
+    client = FakeGmailClient([([message], "hist-1")])
+    connector = GmailConnector(client, InMemoryCheckpointStore())
+
+    [email_node] = connector.poll()
+
+    assert [child.filename for child in email_node.children] == ["notes.docx", "budget.pdf"]
+    assert [child.raw_bytes for child in email_node.children] == [b"docx-bytes", b"pdf-bytes"]
+    assert all(child.kind == "attachment" for child in email_node.children)
+    assert all(child.text is None for child in email_node.children)
 
 
 def test_an_empty_poll_does_not_move_the_checkpoint_backwards() -> None:

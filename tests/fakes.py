@@ -8,6 +8,19 @@ from ingestor.connectors.gmail import GmailMessage
 from ingestor.tools import ToolSpec
 
 
+@dataclass
+class FakeAgent:
+    """Seam 1 stand-in for ingestor.agent.Agent, so Steps that invoke the
+    Agent can be tested without any LLM involved.
+    """
+
+    calls: list[tuple[str, str]] = field(default_factory=list)
+
+    async def run(self, system_prompt: str, user_prompt: str) -> str:
+        self.calls.append((system_prompt, user_prompt))
+        return ""
+
+
 class FakeGmailClient:
     """Seam 1 fake: replaces the real Gmail API with pre-scripted batches."""
 

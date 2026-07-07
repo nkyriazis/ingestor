@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import io
+
 import pytest
+from docx import Document
 
 from ingestor.convert import ConvertStep, EvidenceWriter
 from ingestor.evidence import EvidenceNode
@@ -8,6 +11,14 @@ from ingestor.pipeline import PipelineContext
 from tests.fakes import FakeGraphClient
 
 pytestmark = [pytest.mark.seam1, pytest.mark.asyncio]
+
+
+def _docx_bytes(paragraph: str) -> bytes:
+    document = Document()
+    document.add_paragraph(paragraph)
+    buffer = io.BytesIO()
+    document.save(buffer)
+    return buffer.getvalue()
 
 
 async def test_writes_a_single_node_with_no_parent_edge() -> None:
@@ -55,3 +66,30 @@ async def test_convert_step_writes_the_evidence_tree() -> None:
     await ConvertStep().run(EvidenceNode(id="e1", kind="email", source_ref="e1", text="hi"), ctx)
 
     assert graph.write_calls
+
+
+async def test_convert_step_converts_a_document_attachment_before_writing() -> None:
+    graph = FakeGraphClient()
+    ctx = PipelineContext(graph=graph, agent=None)  # type: ignore[arg-type]
+    email = EvidenceNode(
+        id="gmail:e1",
+        kind="email",
+        source_ref="e1",
+        text="see attached",
+        children=[
+            EvidenceNode(
+                id="gmail:e1:attachment:0",
+                kind="attachment",
+                source_ref="notes.docx",
+                filename="notes.docx",
+                raw_bytes=_docx_bytes("Nikos will lead the migration."),
+            )
+        ],
+    )
+
+    await ConvertStep().run(email, ctx)
+
+    assert email.children[0].text is not None
+    assert "Nikos" in email.children[0].text
+    node_writes = {c.params["id"]: c.params["text"] for c in graph.write_calls if "kind" in c.params}
+    assert node_writes["gmail:e1:attachment:0"] and "Nikos" in node_writes["gmail:e1:attachment:0"]
