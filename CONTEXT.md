@@ -12,6 +12,10 @@ _Avoid_: Workflow, Orchestrator
 An atomic, resumable unit of work within the Pipeline (e.g. Convert, Canonicalize, Extract). Steps are shared across every Connector and content type — a Connector only supplies raw content; everything downstream of it is source-agnostic and reusable.
 _Avoid_: Stage, Task
 
+**Agent**:
+The LLM-driven reasoning component behind judgment-requiring Steps (image captioning, Canonicalization's reuse-vs-create decision, Knowledge extraction). Where a Step needs to write to the graph, the Agent performs that write itself by calling the MCP's tools directly — the Agent is the seam between semantic judgment and mechanical graph writes, not the Pipeline. Tested independent of any specific graph MCP, against a fake/generic tool surface.
+_Avoid_: Model, LLM (the Agent is the reasoning role; the LLM is just what powers it)
+
 **Connector**:
 A pluggable adapter for one external source (Gmail, Keep, a folder, etc.), responsible for detecting new/changed content — via whichever trigger mechanism fits that source, push or polling — and yielding it as a normalized content tree. Each Connector owns its own checkpoint state internally (e.g. "newest Gmail message ID seen") rather than storing it in the graph: this bookkeeping must be fully automatic and reliable on its own, independent of the graph MCP surface, which the ingestor doesn't control.
 _Avoid_: Source, Adapter, Integration
