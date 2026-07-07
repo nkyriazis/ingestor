@@ -11,13 +11,19 @@ from ingestor.tools import ToolSpec
 @dataclass
 class FakeAgent:
     """Seam 1 stand-in for ingestor.agent.Agent, so Steps that invoke the
-    Agent can be tested without any LLM involved.
+    Agent can be tested without any LLM involved. `fail_times` lets a test
+    simulate a Step failing partway through, e.g. to exercise Pipeline
+    resumability.
     """
 
     calls: list[tuple[str, str]] = field(default_factory=list)
+    fail_times: int = 0
 
     async def run(self, system_prompt: str, user_prompt: str) -> str:
         self.calls.append((system_prompt, user_prompt))
+        if self.fail_times > 0:
+            self.fail_times -= 1
+            raise RuntimeError("simulated Agent failure")
         return ""
 
 
