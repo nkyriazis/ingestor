@@ -6,6 +6,7 @@ from typing import Protocol
 from ingestor.agent import Agent
 from ingestor.evidence import EvidenceNode
 from ingestor.graph import GraphClient
+from ingestor.llm import LlamaCppClient
 from ingestor.progress import ProgressStore
 
 
@@ -14,9 +15,14 @@ class PipelineContext:
     """Shared dependencies every Step may need. Plain data — the Pipeline
     itself has no awareness of what's inside (see CONTEXT.md's Pipeline
     entry: no awareness of LLMs, only specific Steps happen to call one).
+
+    `llm` is the bare model client, for narrow one-shot calls that need no
+    tools (e.g. image captioning); `agent` wraps it with tool-calling for
+    judgment-requiring, graph-writing work (extraction, canonicalization).
     """
 
     graph: GraphClient
+    llm: LlamaCppClient
     agent: Agent
 
 

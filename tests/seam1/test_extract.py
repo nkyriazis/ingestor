@@ -12,7 +12,7 @@ pytestmark = [pytest.mark.seam1, pytest.mark.asyncio]
 
 async def test_runs_the_agent_once_per_node_with_text_in_the_tree() -> None:
     agent = FakeAgent()
-    ctx = PipelineContext(graph=None, agent=agent)  # type: ignore[arg-type]
+    ctx = PipelineContext(graph=None, llm=None, agent=agent)  # type: ignore[arg-type]
     email = EvidenceNode(
         id="gmail:e1",
         kind="email",
@@ -35,7 +35,7 @@ async def test_runs_the_agent_once_per_node_with_text_in_the_tree() -> None:
 
 async def test_a_node_with_no_text_anywhere_in_the_tree_never_calls_the_agent() -> None:
     agent = FakeAgent()
-    ctx = PipelineContext(graph=None, agent=agent)  # type: ignore[arg-type]
+    ctx = PipelineContext(graph=None, llm=None, agent=agent)  # type: ignore[arg-type]
     node = EvidenceNode(id="gmail:e2", kind="email", source_ref="e2", text=None)
 
     await ExtractStep().run(node, ctx)

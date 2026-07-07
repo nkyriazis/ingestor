@@ -66,6 +66,52 @@ async def test_evidence_tree_persists_contained_in_edges_with_position() -> None
             await graph.write_cypher("MATCH (n) WHERE n.id STARTS WITH 'seam3:' DETACH DELETE n")
 
 
+async def test_a_specific_nested_image_is_directly_addressable_by_position() -> None:
+    """The 1st image of the 2nd file of an email — the exact query pattern
+    that motivated per-node Evidence and ordinal CONTAINED_IN positions.
+    """
+    async with connect_mcp(GRAPH_MCP_URL) as session:
+        graph = McpGraphClient(session)
+        try:
+            tree = EvidenceNode(
+                id="seam3:email",
+                kind="email",
+                source_ref="email",
+                text="see attached",
+                children=[
+                    EvidenceNode(id="seam3:file-0", kind="attachment", source_ref="f0", text="x"),
+                    EvidenceNode(
+                        id="seam3:file-1",
+                        kind="attachment",
+                        source_ref="f1",
+                        children=[
+                            EvidenceNode(
+                                id="seam3:file-1:image-0", kind="image", source_ref="i0", text="a"
+                            ),
+                            EvidenceNode(
+                                id="seam3:file-1:image-1", kind="image", source_ref="i1", text="b"
+                            ),
+                        ],
+                    ),
+                ],
+            )
+
+            await EvidenceWriter(graph).write(tree)
+
+            rows = await graph.read_cypher(
+                """
+                MATCH (email:Evidence {id: $email})<-[:CONTAINED_IN {position: 1}]-(file:Evidence)
+                MATCH (file)<-[:CONTAINED_IN {position: 0}]-(image:Evidence)
+                RETURN image.id AS id, image.text AS text
+                """,
+                {"email": "seam3:email"},
+            )
+
+            assert rows == [{"id": "seam3:file-1:image-0", "text": "a"}]
+        finally:
+            await graph.write_cypher("MATCH (n) WHERE n.id STARTS WITH 'seam3:' DETACH DELETE n")
+
+
 async def test_re_writing_the_same_tree_does_not_duplicate_nodes() -> None:
     async with connect_mcp(GRAPH_MCP_URL) as session:
         graph = McpGraphClient(session)

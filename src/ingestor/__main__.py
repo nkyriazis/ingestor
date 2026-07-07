@@ -36,7 +36,7 @@ async def run() -> None:
         graph = McpGraphClient(session)
         agent = Agent(llm, tools=[canonicalization_tool_spec(graph), *await mcp_agent_tools(session)])
         pipeline = Pipeline(steps=[ConvertStep(), ExtractStep()], progress=progress)
-        ctx = PipelineContext(graph=graph, agent=agent)
+        ctx = PipelineContext(graph=graph, llm=llm, agent=agent)
 
         while True:
             for node in connector.poll():

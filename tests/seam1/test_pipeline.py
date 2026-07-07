@@ -10,7 +10,7 @@ pytestmark = [pytest.mark.seam1, pytest.mark.asyncio]
 
 # Steps don't touch ctx in these tests, so a bare context with no real
 # GraphClient/Agent is fine — Pipeline itself has no awareness of either.
-DUMMY_CTX = PipelineContext(graph=None, agent=None)  # type: ignore[arg-type]
+DUMMY_CTX = PipelineContext(graph=None, llm=None, agent=None)  # type: ignore[arg-type]
 
 
 class RecordingStep:
