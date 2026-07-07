@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from ingestor.importers.gmail_api import filter_by_query, resolve_label_id
+from ingestor.importers.gmail_api import filter_by_query, resolve_label_id, resolve_label_scope
 
 pytestmark = pytest.mark.seam1
 
@@ -28,3 +28,16 @@ def test_filter_by_query_preserves_discovery_order() -> None:
 
 def test_filter_by_query_drops_everything_when_nothing_matches() -> None:
     assert filter_by_query(["a", "b"], set()) == []
+
+
+def test_resolve_label_scope_defaults_to_inbox_when_nothing_configured() -> None:
+    assert resolve_label_scope(None, None) == "INBOX"
+
+
+def test_resolve_label_scope_uses_the_resolved_label_regardless_of_query() -> None:
+    assert resolve_label_scope("Label_123", None) == "Label_123"
+    assert resolve_label_scope("Label_123", "from:someone@example.com") == "Label_123"
+
+
+def test_resolve_label_scope_has_no_label_restriction_for_query_only() -> None:
+    assert resolve_label_scope(None, "from:someone@example.com") is None

@@ -13,6 +13,20 @@ from ingestor.importers.drive import DriveFile
 
 FOLDER_MIME_TYPE = "application/vnd.google-apps.folder"
 
+# Native Google Docs/Sheets/Slides have no bytes of their own — get_media()
+# 403s on them — so they must be exported to a concrete format instead.
+# Slides export to pptx so ConvertStep's existing slide-deck handling picks
+# them up unchanged; Docs/Sheets export to plain text formats good enough
+# for markitdown/extraction.
+_GOOGLE_NATIVE_EXPORT_FORMATS = {
+    "application/vnd.google-apps.document": ("text/plain", ".txt"),
+    "application/vnd.google-apps.spreadsheet": ("text/csv", ".csv"),
+    "application/vnd.google-apps.presentation": (
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        ".pptx",
+    ),
+}
+
 
 class RealDriveClient:
     """Talks to the real Drive API. Requires the shared Google OAuth token
@@ -72,7 +86,7 @@ class RealDriveClient:
                     pageToken=page_token,
                     fields=(
                         "nextPageToken, newStartPageToken, "
-                        "changes(fileId, file(id, name, parents, trashed))"
+                        "changes(fileId, file(id, name, parents, trashed, mimeType))"
                     ),
                 )
                 .execute()
@@ -80,7 +94,9 @@ class RealDriveClient:
             for change in changes_response.get("changes", []):
                 file = change.get("file")
                 if file and not file.get("trashed") and self._in_watched_folder(file):
-                    files.append(self._fetch(str(file["id"]), str(file["name"])))
+                    files.append(
+                        self._fetch(str(file["id"]), str(file["name"]), str(file.get("mimeType", "")))
+                    )
             page_token = changes_response.get("nextPageToken", "")
             if not page_token:
                 latest_token = str(changes_response.get("newStartPageToken", latest_token))
@@ -90,8 +106,14 @@ class RealDriveClient:
     def _in_watched_folder(self, file: Mapping[str, Any]) -> bool:
         return any(parent in self._folder_ids for parent in file.get("parents") or [])
 
-    def _fetch(self, file_id: str, name: str) -> DriveFile:
-        request = self._service.files().get_media(fileId=file_id)
+    def _fetch(self, file_id: str, name: str, mime_type: str) -> DriveFile:
+        export_format = _GOOGLE_NATIVE_EXPORT_FORMATS.get(mime_type)
+        if export_format is None:
+            request = self._service.files().get_media(fileId=file_id)
+        else:
+            export_mime_type, extension = export_format
+            request = self._service.files().export_media(fileId=file_id, mimeType=export_mime_type)
+            name = f"{name}{extension}"
         buffer = io.BytesIO()
         downloader = MediaIoBaseDownload(buffer, request)
         done = False
@@ -126,8 +148,19 @@ def resolve_folder_id(folders: Sequence[Mapping[str, Any]], path: str) -> str:
     if not matching_ids:
         raise ValueError(f"No Drive folder matches path {path!r}")
     if len(matching_ids) > 1:
+        candidate_paths = sorted(_full_path(by_id, folder_id) for folder_id in matching_ids)
         raise ValueError(
-            f"Ambiguous Drive folder path {path!r}: matches {len(matching_ids)} folders "
+            f"Ambiguous Drive folder path {path!r}: matches {candidate_paths} "
             "— use a longer path (e.g. 'Parent/Name') to disambiguate"
         )
     return matching_ids[0]
+
+
+def _full_path(by_id: Mapping[str, Mapping[str, Any]], folder_id: str) -> str:
+    folder = by_id.get(folder_id)
+    if folder is None:
+        return "?"
+    parents = folder.get("parents") or []
+    if not parents:
+        return str(folder["name"])
+    return f"{_full_path(by_id, parents[0])}/{folder['name']}"

@@ -25,22 +25,26 @@ class RealGmailClient:
     existing mail, since a personal ingestion pipeline should start from
     "now", not replay the whole inbox.
 
-    `label` scopes which label's history to watch (defaults to INBOX,
-    matching the prior hardcoded behavior); `query` additionally restricts
-    to messages matching a Gmail search (`q=`) string. The History API has
-    no `q=` parameter itself, so `query` is applied as a second pass: see
-    `filter_by_query`.
+    `label` scopes which label's history to watch. `query` additionally
+    restricts to messages matching a Gmail search (`q=`) string. The
+    History API has no `q=` parameter itself, so `query` is applied as a
+    second pass: see `filter_by_query`.
+
+    With neither configured, defaults to INBOX, matching the prior
+    hardcoded behavior. With only `query` configured, there's no label
+    restriction at all — matching Gmail's own search box, which searches
+    All Mail by default rather than silently narrowing to INBOX.
     """
 
     def __init__(
         self, token_path: Path, label: str | None = None, query: str | None = None
     ) -> None:
         self._service = build("gmail", "v1", credentials=load_credentials(token_path))
-        if label is None:
-            self._label_id = "INBOX"
-        else:
+        resolved_label_id = None
+        if label is not None:
             labels = self._service.users().labels().list(userId="me").execute()
-            self._label_id = resolve_label_id(labels.get("labels", []), label)
+            resolved_label_id = resolve_label_id(labels.get("labels", []), label)
+        self._label_id = resolve_label_scope(resolved_label_id, query)
         self._query = query
 
     def list_new_messages(
@@ -54,18 +58,15 @@ class RealGmailClient:
         latest_history_id = checkpoint
         page_token = ""
         while True:
-            response = (
-                self._service.users()
-                .history()
-                .list(
-                    userId="me",
-                    startHistoryId=checkpoint,
-                    historyTypes=["messageAdded"],
-                    labelId=self._label_id,
-                    pageToken=page_token,
-                )
-                .execute()
-            )
+            history_kwargs: dict[str, Any] = {
+                "userId": "me",
+                "startHistoryId": checkpoint,
+                "historyTypes": ["messageAdded"],
+                "pageToken": page_token,
+            }
+            if self._label_id is not None:
+                history_kwargs["labelId"] = self._label_id
+            response = self._service.users().history().list(**history_kwargs).execute()
             for record in response.get("history", []):
                 latest_history_id = str(record.get("id", latest_history_id))
                 for added in record.get("messagesAdded", []):
@@ -85,12 +86,10 @@ class RealGmailClient:
         # Newly-discovered messages are, by construction, recent — and Gmail
         # orders q= results newest-first — so a single unpaginated page is
         # always enough to cover them at personal-mailbox polling cadence.
-        response = (
-            self._service.users()
-            .messages()
-            .list(userId="me", q=query, labelIds=[self._label_id], maxResults=500)
-            .execute()
-        )
+        list_kwargs: dict[str, Any] = {"userId": "me", "q": query, "maxResults": 500}
+        if self._label_id is not None:
+            list_kwargs["labelIds"] = [self._label_id]
+        response = self._service.users().messages().list(**list_kwargs).execute()
         matching_ids = {message["id"] for message in response.get("messages", [])}
         return filter_by_query(message_ids, matching_ids)
 
@@ -135,6 +134,20 @@ def resolve_label_id(labels: Sequence[Mapping[str, Any]], label_name: str) -> st
         if label["name"] == label_name:
             return str(label["id"])
     raise ValueError(f"No Gmail label named {label_name!r} found")
+
+
+def resolve_label_scope(resolved_label_id: str | None, query: str | None) -> str | None:
+    """Decides which label id (if any) scopes both history discovery and
+    query filtering. With a label configured, always use it. With neither
+    configured, default to INBOX (matching the prior hardcoded behavior).
+    With only a query configured, use no label restriction at all — Gmail's
+    own search box searches All Mail by default, not just INBOX.
+    """
+    if resolved_label_id is not None:
+        return resolved_label_id
+    if query is None:
+        return "INBOX"
+    return None
 
 
 def filter_by_query(message_ids: list[str], matching_ids: set[str]) -> list[str]:

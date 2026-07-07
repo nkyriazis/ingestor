@@ -24,8 +24,8 @@ def test_disambiguates_same_named_folders_by_full_path() -> None:
     assert resolve_folder_id(FOLDERS, "Personal/Notes") == "5"
 
 
-def test_raises_when_a_bare_name_is_ambiguous() -> None:
-    with pytest.raises(ValueError, match="Ambiguous"):
+def test_raises_when_a_bare_name_is_ambiguous_and_lists_the_full_paths() -> None:
+    with pytest.raises(ValueError, match=r"Notes.*Personal/Notes.*Work/Notes"):
         resolve_folder_id(FOLDERS, "Notes")
 
 
