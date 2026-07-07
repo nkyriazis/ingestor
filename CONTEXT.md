@@ -37,7 +37,7 @@ A structural edge from a child Evidence node to its parent container, carrying a
 _Avoid_: CONTAINS (rejected — direction goes child→parent, not parent→child)
 
 **Conversion**:
-The pipeline step that turns a raw Evidence node's bytes into ingestable content (via markitdown/docling), and may discover new structure in the process (e.g. a slide deck's individual slides, each with their own text and image). Every discovered piece becomes its own Evidence node — intermediate results are never discarded, only chained. For images specifically, conversion produces a text description (OCR for literal text, vision captioning for visual/diagrammatic content) so later stages only ever reason over text, never branching on media type.
+The pipeline step that turns a raw Evidence node's bytes into ingestable content (via markitdown/docling), and may discover new structure in the process (e.g. a slide deck's individual slides, each with their own text and image, or an archive's individual entries). Every discovered piece becomes its own Evidence node — intermediate results are never discarded, only chained, and cascade through further Conversion (an archive containing a slide deck gets both unwrapped in turn). For images specifically, conversion produces a text description (OCR for literal text, vision captioning for visual/diagrammatic content) so later stages only ever reason over text, never branching on media type. Archive expansion reuses the same directory-tree-building code the Connector uses to read the Sink (see ADR 0004) — one implementation of "turn a directory into an Evidence tree," pointed at either the Sink or a temp-extracted archive.
 _Avoid_: Extraction (reserved for the later step that turns Evidence into Knowledge)
 
 **Canonicalization**:

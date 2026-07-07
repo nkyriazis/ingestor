@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Literal
 
-EvidenceKind = Literal["email", "attachment", "slide", "image"]
+EvidenceKind = Literal["email", "attachment", "slide", "image", "container"]
 
 
 @dataclass

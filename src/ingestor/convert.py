@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import io
+import tempfile
+import zipfile
 from collections.abc import Awaitable, Callable
 from pathlib import Path
 
 from ingestor.captioning import caption_image
+from ingestor.directory_tree import build_tree
 from ingestor.documents import convert_document_to_text
 from ingestor.evidence import EvidenceNode
 from ingestor.graph import GraphClient
@@ -19,6 +23,8 @@ _IMAGE_MIME_TYPES = {
     "gif": "image/gif",
     "webp": "image/webp",
 }
+
+_ARCHIVE_EXTENSIONS = {"zip"}
 
 _UPSERT_NODE = """
 MERGE (e:Evidence {id: $id})
@@ -89,6 +95,8 @@ async def _convert_tree(node: EvidenceNode, caption: CaptionFn) -> None:
         extension = Path(node.filename or "").suffix.lower().lstrip(".")
         if extension == "pptx":
             _expand_slide_deck(node)
+        elif extension in _ARCHIVE_EXTENSIONS:
+            _expand_archive(node)
         elif extension in _IMAGE_MIME_TYPES:
             node.text = await caption(node.raw_bytes, _IMAGE_MIME_TYPES[extension])
         else:
@@ -96,6 +104,22 @@ async def _convert_tree(node: EvidenceNode, caption: CaptionFn) -> None:
 
     for child in node.children:
         await _convert_tree(child, caption)
+
+
+def _expand_archive(node: EvidenceNode) -> None:
+    """An archive is just another content encoding to unwrap, like a slide
+    deck — so it reuses the exact same directory-tree-building code the
+    Sink's FilesystemConnector uses (see ADR 0004), just pointed at a
+    temp-extracted copy instead of the Sink. Nested content (a .pptx or
+    image inside the archive) cascades through the normal recursion below
+    once expansion adds it as a child.
+    """
+    assert node.raw_bytes is not None
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tmp_path = Path(tmp_dir)
+        with zipfile.ZipFile(io.BytesIO(node.raw_bytes)) as archive:
+            archive.extractall(tmp_path)
+        node.children = build_tree(tmp_path, node.id).children
 
 
 def _expand_slide_deck(node: EvidenceNode) -> None:

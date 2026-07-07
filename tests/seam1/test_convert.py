@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import zipfile
 
 import pytest
 from docx import Document
@@ -44,6 +45,14 @@ def _deck_bytes_with_one_image_slide() -> bytes:
 
 async def _fake_caption(data: bytes, mime_type: str) -> str:
     return f"[caption of a {mime_type} image, {len(data)} bytes]"
+
+
+def _zip_bytes(entries: dict[str, bytes]) -> bytes:
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        for name, data in entries.items():
+            archive.writestr(name, data)
+    return buffer.getvalue()
 
 
 async def test_writes_a_single_node_with_no_parent_edge() -> None:
@@ -173,3 +182,49 @@ async def test_a_slide_deck_expands_into_slide_children_contained_in_the_deck_in
     }
     assert edges_by_child[slide.id] == {"child_id": slide.id, "parent_id": deck.id, "position": 0}
     assert edges_by_child[image.id] == {"child_id": image.id, "parent_id": slide.id, "position": 0}
+
+
+async def test_a_zip_attachment_expands_into_one_child_per_entry() -> None:
+    graph = FakeGraphClient()
+    ctx = PipelineContext(graph=graph, llm=None, agent=None)  # type: ignore[arg-type]
+    archive = EvidenceNode(
+        id="gmail:e4:attachment:0",
+        kind="attachment",
+        source_ref="bundle.zip",
+        filename="bundle.zip",
+        raw_bytes=_zip_bytes(
+            {
+                "note.txt": b"Ship v2 by August.",
+                "notes.docx": _docx_bytes("Nikos owns the rollout."),
+            }
+        ),
+    )
+
+    await ConvertStep(caption=_fake_caption).run(archive, ctx)
+
+    assert archive.text is None, "the archive itself is a pure container"
+    children_by_ref = {child.source_ref: child for child in archive.children}
+    assert children_by_ref["note.txt"].text == "Ship v2 by August."
+    assert "Nikos" in (children_by_ref["notes.docx"].text or "")
+    assert all(child.id.startswith(archive.id) for child in archive.children)
+
+
+async def test_a_pptx_inside_a_zip_is_still_expanded_into_slides() -> None:
+    graph = FakeGraphClient()
+    ctx = PipelineContext(graph=graph, llm=None, agent=None)  # type: ignore[arg-type]
+    archive = EvidenceNode(
+        id="gmail:e5:attachment:0",
+        kind="attachment",
+        source_ref="bundle.zip",
+        filename="bundle.zip",
+        raw_bytes=_zip_bytes({"deck.pptx": _deck_bytes_with_one_image_slide()}),
+    )
+
+    await ConvertStep(caption=_fake_caption).run(archive, ctx)
+
+    [deck] = archive.children
+    assert deck.filename == "deck.pptx"
+    [slide] = deck.children
+    assert slide.kind == "slide"
+    [image] = slide.children
+    assert image.text == "[caption of a image/png image, 79 bytes]"
