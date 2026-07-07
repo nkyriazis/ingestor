@@ -61,11 +61,20 @@ def _parse_rows(text: str) -> list[dict[str, Any]]:
     return list(parsed) if isinstance(parsed, list) else [parsed]
 
 
-async def mcp_agent_tools(session: ClientSession) -> list[ToolSpec]:
-    """Wraps every tool the connected MCP exposes as an Agent ToolSpec, so the
+async def mcp_agent_tools(session: ClientSession, read_only: bool = False) -> list[ToolSpec]:
+    """Wraps tools the connected MCP exposes as Agent ToolSpecs, so the
     Agent's LLM can call them directly during its reasoning loop.
+
+    `read_only=True` keeps only tools the MCP itself annotates with
+    `readOnlyHint: true` (e.g. `read_neo4j_cypher`, `get_neo4j_schema`, not
+    `write_neo4j_cypher`) — for a query Agent, which should never write.
+    A tool with no annotations at all is excluded when `read_only=True`,
+    since we can't confirm it's safe.
     """
     listed = await session.list_tools()
+    tools = listed.tools
+    if read_only:
+        tools = [tool for tool in tools if tool.annotations and tool.annotations.readOnlyHint]
     return [
         ToolSpec(
             name=tool.name,
@@ -73,7 +82,7 @@ async def mcp_agent_tools(session: ClientSession) -> list[ToolSpec]:
             input_schema=tool.inputSchema,
             handler=_make_handler(session, tool.name),
         )
-        for tool in listed.tools
+        for tool in tools
     ]
 
 

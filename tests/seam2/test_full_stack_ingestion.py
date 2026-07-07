@@ -16,6 +16,7 @@ from ingestor.llm import LlamaCppClient
 from ingestor.mcp_tools import McpGraphClient, connect_mcp, mcp_agent_tools
 from ingestor.pipeline import Pipeline, PipelineContext
 from ingestor.progress import InMemoryProgressStore
+from ingestor.query import QUERY_SYSTEM_PROMPT
 from tests.fakes import FakeGmailClient
 
 pytestmark = [pytest.mark.seam2, pytest.mark.asyncio]
@@ -79,6 +80,19 @@ async def test_a_fake_email_flows_through_the_real_stack_into_a_traceable_fact(
             assert rows, "expected a Knowledge node traceable back to its Evidence"
             assert rows[0]["evidence_id"].startswith("gmail/e2e-1")
             assert SURNAME in (rows[0]["evidence_text"] or "")
+
+            query_tools = [
+                canonicalization_tool_spec(graph),
+                *await mcp_agent_tools(session, read_only=True),
+            ]
+            query_agent = Agent(llm, tools=query_tools, max_turns=12)
+
+            answer = await query_agent.run(
+                QUERY_SYSTEM_PROMPT, "Who owns the Q4 rollout, and what's your source for that?"
+            )
+
+            assert SURNAME in answer, f"expected the answer to name the person, got: {answer!r}"
+            assert "gmail/e2e-1" in answer, f"expected the answer to cite its Evidence id, got: {answer!r}"
         finally:
             await graph.write_cypher(
                 "MATCH (m:Mention)-[:ABOUT]->(e:Evidence) "

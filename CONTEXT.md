@@ -55,3 +55,7 @@ _Avoid_: Extraction, Assertion, Observation
 **EventBus**:
 The async-safe, in-process publish/subscribe observers watch to see what the ingestor is doing live — Step lifecycle, item discovery, Agent activity. No persistence: a subscriber only ever sees events published while it's connected (live-tail), never a backlog. Publishers (Pipeline, Connector, Importer, Agent) never know or care whether anyone's listening — a subscriber-less EventBus is a safe no-op. Exposed externally as Server-Sent Events over HTTP, unauthenticated and bound to the local/trusted network only (see ADR 0002's reasoning) — event payloads may include snippets of real content, so this is a deliberate scope limit, not an oversight.
 _Avoid_: Logger, Message queue (no persistence, no delivery guarantees beyond "currently connected")
+
+**Query**:
+The read side, symmetric to extraction: the same `Agent` abstraction, given read-only tools (the graph MCP's tools filtered to those it annotates `readOnlyHint`, plus Canonicalization's search) and a question instead of Evidence text. It searches Knowledge, walks `Mention`→`Evidence` for provenance, and answers citing the Evidence it found — never writing, never inventing an answer the graph doesn't support.
+_Avoid_: Search, Retrieval (Query is our term for this specific read-only-Agent shape)
