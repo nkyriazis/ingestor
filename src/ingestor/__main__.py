@@ -35,19 +35,21 @@ async def run() -> None:
         base_url=os.environ["LLAMACPP_BASE_URL"],
         model=os.environ.get("LLAMACPP_MODEL", "default"),
     )
+    events = EventBus()
     importers = [
         GmailImporter(
             client=RealGmailClient(Path(os.environ["GMAIL_TOKEN_PATH"])),
             checkpoints=JsonFileCheckpointStore(STATE_DIR / "gmail-checkpoint.json"),
             sink_root=SINK_ROOT,
+            events=events,
         ),
     ]
     connector = FilesystemConnector(
         sink_root=SINK_ROOT,
         checkpoints=JsonFileCheckpointStore(STATE_DIR / "filesystem-checkpoint.json"),
+        events=events,
     )
     progress = JsonFileProgressStore(STATE_DIR / "pipeline-progress.json")
-    events = EventBus()
 
     events_server = uvicorn.Server(
         uvicorn.Config(create_app(events), host=EVENTS_HOST, port=EVENTS_PORT, log_level="info")

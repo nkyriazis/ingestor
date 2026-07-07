@@ -6,8 +6,10 @@ from pathlib import Path
 from ingestor.checkpoint import CheckpointStore
 from ingestor.directory_tree import build_tree
 from ingestor.evidence import EvidenceNode
+from ingestor.events import EventBus
 
 CHECKPOINT_KEY = "filesystem:seen_items"
+ITEM_DISCOVERED = "item_discovered"
 
 
 class FilesystemConnector:
@@ -17,9 +19,12 @@ class FilesystemConnector:
     already handed off) is independent of any Importer's own checkpoint.
     """
 
-    def __init__(self, sink_root: Path, checkpoints: CheckpointStore) -> None:
+    def __init__(
+        self, sink_root: Path, checkpoints: CheckpointStore, events: EventBus | None = None
+    ) -> None:
         self._sink_root = sink_root
         self._checkpoints = checkpoints
+        self._events = events or EventBus()
 
     def poll(self) -> list[EvidenceNode]:
         if not self._sink_root.is_dir():
@@ -37,7 +42,9 @@ class FilesystemConnector:
 
         seen.update(str(item_dir.relative_to(self._sink_root)) for item_dir in new_item_dirs)
         self._checkpoints.set(CHECKPOINT_KEY, json.dumps(sorted(seen)))
-        return [
-            build_tree(item_dir, str(item_dir.relative_to(self._sink_root)))
-            for item_dir in new_item_dirs
-        ]
+        nodes = []
+        for item_dir in new_item_dirs:
+            item_id = str(item_dir.relative_to(self._sink_root))
+            self._events.publish(ITEM_DISCOVERED, item_id=item_id)
+            nodes.append(build_tree(item_dir, item_id))
+        return nodes

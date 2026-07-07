@@ -5,9 +5,12 @@ from pathlib import Path
 from typing import Protocol
 
 from ingestor.checkpoint import CheckpointStore
+from ingestor.events import EventBus
 from ingestor.sink import write_sidecar
 
 CHECKPOINT_KEY = "gmail:last_history_id"
+SOURCE_NAME = "gmail"
+IMPORTER_RAN = "importer_ran"
 
 
 @dataclass
@@ -45,10 +48,17 @@ class GmailImporter:
     ADR 0003).
     """
 
-    def __init__(self, client: GmailClient, checkpoints: CheckpointStore, sink_root: Path) -> None:
+    def __init__(
+        self,
+        client: GmailClient,
+        checkpoints: CheckpointStore,
+        sink_root: Path,
+        events: EventBus | None = None,
+    ) -> None:
         self._client = client
         self._checkpoints = checkpoints
         self._sink_root = sink_root
+        self._events = events or EventBus()
 
     def pull(self) -> None:
         checkpoint = self._checkpoints.get(CHECKPOINT_KEY)
@@ -57,9 +67,10 @@ class GmailImporter:
             self._write(message)
         if next_checkpoint is not None and next_checkpoint != checkpoint:
             self._checkpoints.set(CHECKPOINT_KEY, next_checkpoint)
+        self._events.publish(IMPORTER_RAN, importer=SOURCE_NAME, new_items=len(messages))
 
     def _write(self, message: GmailMessage) -> None:
-        item_dir = self._sink_root / "gmail" / message.id
+        item_dir = self._sink_root / SOURCE_NAME / message.id
         write_sidecar(item_dir, kind="email", source_ref=message.id)
         (item_dir / "00-body.txt").write_text(message.body_text, encoding="utf-8")
         for index, attachment in enumerate(message.attachments, start=1):
