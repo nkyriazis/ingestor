@@ -5,7 +5,7 @@ from typing import Protocol
 
 from ingestor.agent import Agent
 from ingestor.evidence import EvidenceNode
-from ingestor.events import EventBus
+from ingestor.events import EventBus, default_events
 from ingestor.graph import GraphClient
 from ingestor.llm import LlamaCppClient
 from ingestor.progress import ProgressStore
@@ -51,7 +51,7 @@ class Pipeline:
     ) -> None:
         self._steps = steps
         self._progress = progress
-        self._events = events or EventBus()
+        self._events = default_events(events)
 
     async def process(self, node: EvidenceNode, ctx: PipelineContext) -> None:
         done = self._progress.completed_steps(node.id)

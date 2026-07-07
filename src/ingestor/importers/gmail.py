@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Protocol
 
 from ingestor.checkpoint import CheckpointStore
-from ingestor.events import EventBus
+from ingestor.events import EventBus, default_events
 from ingestor.sink import write_sidecar
 
 CHECKPOINT_KEY = "gmail:last_history_id"
@@ -58,7 +58,7 @@ class GmailImporter:
         self._client = client
         self._checkpoints = checkpoints
         self._sink_root = sink_root
-        self._events = events or EventBus()
+        self._events = default_events(events)
 
     def pull(self) -> None:
         checkpoint = self._checkpoints.get(CHECKPOINT_KEY)

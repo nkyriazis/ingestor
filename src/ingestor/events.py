@@ -50,3 +50,11 @@ class EventBus:
                 yield await queue.get()
         finally:
             self._subscribers.remove(queue)
+
+
+def default_events(events: EventBus | None) -> EventBus:
+    """`events or EventBus()` as a named helper — every publisher (Pipeline,
+    Connector, Importer, Agent) takes an optional EventBus and falls back to
+    a fresh, subscriber-less (so effectively no-op) instance the same way.
+    """
+    return events or EventBus()

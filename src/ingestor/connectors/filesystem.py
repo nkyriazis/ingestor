@@ -6,7 +6,7 @@ from pathlib import Path
 from ingestor.checkpoint import CheckpointStore
 from ingestor.directory_tree import build_tree
 from ingestor.evidence import EvidenceNode
-from ingestor.events import EventBus
+from ingestor.events import EventBus, default_events
 
 CHECKPOINT_KEY = "filesystem:seen_items"
 ITEM_DISCOVERED = "item_discovered"
@@ -24,7 +24,7 @@ class FilesystemConnector:
     ) -> None:
         self._sink_root = sink_root
         self._checkpoints = checkpoints
-        self._events = events or EventBus()
+        self._events = default_events(events)
 
     def poll(self) -> list[EvidenceNode]:
         if not self._sink_root.is_dir():

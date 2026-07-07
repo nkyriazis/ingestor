@@ -24,6 +24,12 @@ from ingestor.progress import JsonFileProgressStore
 POLL_INTERVAL_SECONDS = 60
 STATE_DIR = Path(os.environ.get("INGESTOR_STATE_DIR", "/var/lib/ingestor"))
 SINK_ROOT = Path(os.environ.get("INGESTOR_SINK_DIR", "/var/lib/ingestor/sink"))
+# 0.0.0.0 so docker-compose's port publishing can reach this at all (Docker
+# forwards to a container's real interface, never its loopback) — the
+# "loopback-only, no auth" guarantee (see ingestor/observability.py) is
+# enforced by docker-compose's "127.0.0.1:8090:8090" host-side binding, not
+# by this bind address. Running this module outside Docker would need its
+# own care around that.
 EVENTS_HOST = os.environ.get("INGESTOR_EVENTS_HOST", "0.0.0.0")
 EVENTS_PORT = int(os.environ.get("INGESTOR_EVENTS_PORT", "8090"))
 

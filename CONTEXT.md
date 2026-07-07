@@ -29,7 +29,7 @@ The shared filesystem directory that every Importer writes into and the one Conn
 _Avoid_: Staging area, Buffer
 
 **Evidence**:
-A record of a raw source artifact — an email, a note, an attachment, a slide image — with a pointer back to where it lives (e.g. Gmail message ID, file path). Captures provenance, not meaning. Every node in a source's content tree (container, file, image, text snippet) is its own Evidence record — not just the top-level item — linked to its parent via `CONTAINED_IN`.
+A record of a raw source artifact — an email, a note, an attachment, a slide image — with a pointer back to where it lives (e.g. Gmail message ID, file path). Captures provenance, not meaning. Every node in a source's content tree (container, file, image, text snippet) is its own Evidence record — not just the top-level item — linked to its parent via `CONTAINED_IN`. Since the Sink/Connector split (ADR 0003), an item's top-level node is a pure container with no `text` of its own — an email's body is its own child leaf (e.g. `gmail/<id>/00-body.txt`), not baked into the item root. Extraction and Mention provenance for the body attach to that leaf, one hop below the item, not the item itself.
 _Avoid_: Source, Document (when referring to the graph node)
 
 **CONTAINED_IN**:

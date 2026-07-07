@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from ingestor.events import EventBus
+from ingestor.events import EventBus, default_events
 from ingestor.llm import LlamaCppClient
 from ingestor.tools import ToolSpec
 
@@ -34,7 +34,7 @@ class Agent:
         self._tools_by_name = {tool.name: tool for tool in tools}
         self._tool_defs = [tool.to_openai_schema() for tool in tools]
         self._max_turns = max_turns
-        self._events = events or EventBus()
+        self._events = default_events(events)
 
     async def run(self, system_prompt: str, user_prompt: str) -> str:
         messages: list[dict[str, Any]] = [
