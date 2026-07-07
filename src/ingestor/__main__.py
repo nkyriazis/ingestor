@@ -44,7 +44,13 @@ async def run() -> None:
     events = EventBus()
     importers = [
         GmailImporter(
-            client=RealGmailClient(Path(os.environ["GOOGLE_TOKEN_PATH"])),
+            client=RealGmailClient(
+                Path(os.environ["GOOGLE_TOKEN_PATH"]),
+                # `or None`: docker-compose substitutes an empty string, not
+                # an absent key, for an unset optional env var.
+                label=os.environ.get("GMAIL_LABEL") or None,
+                query=os.environ.get("GMAIL_QUERY") or None,
+            ),
             checkpoints=JsonFileCheckpointStore(STATE_DIR / "gmail-checkpoint.json"),
             sink_root=SINK_ROOT,
             events=events,

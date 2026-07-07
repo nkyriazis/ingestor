@@ -26,6 +26,13 @@ consent step and one token file (see `ingestor/google_auth.py`):
 
 `config/` is gitignored — never commit `client_secret.json` or `token.json`.
 
+## Configuring sources
+
+By default, Gmail ingests the whole inbox. Set either (or both) to scope it
+down — `GMAIL_LABEL` to a label name (not Gmail's internal label id; it's
+resolved for you), `GMAIL_QUERY` to a Gmail search string (the same syntax
+as Gmail's own search box, e.g. `from:someone@example.com newer_than:7d`).
+
 ## Running
 
 ```
