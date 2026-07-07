@@ -4,18 +4,17 @@ import base64
 from pathlib import Path
 from typing import Any
 
-from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 
+from ingestor.google_auth import load_credentials
 from ingestor.importers.gmail import GmailAttachment, GmailMessage
-
-SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 
 
 class RealGmailClient:
-    """Talks to the real Gmail API. Requires an OAuth token obtained out of
-    band (see README) — not exercised by the automated test suite, which
-    uses a fake GmailClient against the same Protocol instead.
+    """Talks to the real Gmail API. Requires the shared Google OAuth token
+    (see ingestor.google_auth, README) — not exercised by the automated
+    test suite, which uses a fake GmailClient against the same Protocol
+    instead.
 
     Uses Gmail's History API for incremental sync: the checkpoint is a
     `historyId`, not a message ID (message IDs aren't chronologically
@@ -27,10 +26,7 @@ class RealGmailClient:
     """
 
     def __init__(self, token_path: Path) -> None:
-        credentials = Credentials.from_authorized_user_file(  # type: ignore[no-untyped-call]
-            str(token_path), SCOPES
-        )
-        self._service = build("gmail", "v1", credentials=credentials)
+        self._service = build("gmail", "v1", credentials=load_credentials(token_path))
 
     def list_new_messages(
         self, checkpoint: str | None

@@ -46,3 +46,7 @@ python_version = "3.12"
 strict = true
 mypy_path = "src"
 packages = ["ingestor"]
+
+[[tool.mypy.overrides]]
+module = "google_auth_oauthlib.*"
+ignore_missing_imports = true

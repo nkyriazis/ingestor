@@ -5,6 +5,27 @@ with Gmail) and feeds what arrives into a knowledge graph, keeping every fact
 traceable back to its source. See `CONTEXT.md` for the domain model and
 `docs/adr/` for the architectural decisions behind it.
 
+## First-time setup: Google OAuth
+
+Gmail and Drive are both official Google APIs, so they share one OAuth
+consent step and one token file (see `ingestor/google_auth.py`):
+
+1. In the [Google Cloud Console](https://console.cloud.google.com/), create
+   a project (if you don't have one), enable the Gmail API and Drive API,
+   then create an OAuth client of type **Desktop app** and download its
+   `client_secret.json`.
+2. Run the one-time consent flow, pointing it at that file and at where you
+   want the resulting token written — this opens a browser for you to
+   approve access once, covering both Gmail and Drive:
+   ```
+   mkdir -p config
+   uv run python -m ingestor.setup_google_auth /path/to/client_secret.json config/token.json
+   ```
+3. That's it — `docker-compose.yml` already mounts `./config` into the
+   `ingestor` service and points `GOOGLE_TOKEN_PATH` at `config/token.json`.
+
+`config/` is gitignored — never commit `client_secret.json` or `token.json`.
+
 ## Running
 
 ```

@@ -7,6 +7,9 @@ services:
     environment:
       LLAMACPP_BASE_URL: http://llamacpp:8080/v1
       GRAPH_MCP_URL: http://neo4j-mcp:8000/mcp/
+      # See README's "First-time setup: Google OAuth" — ./config/token.json
+      # is produced once, by hand, via `python -m ingestor.setup_google_auth`.
+      GOOGLE_TOKEN_PATH: /config/token.json
     volumes:
       - ./config:/config:ro
       - ingestor-state:/var/lib/ingestor

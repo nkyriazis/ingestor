@@ -44,7 +44,7 @@ async def run() -> None:
     events = EventBus()
     importers = [
         GmailImporter(
-            client=RealGmailClient(Path(os.environ["GMAIL_TOKEN_PATH"])),
+            client=RealGmailClient(Path(os.environ["GOOGLE_TOKEN_PATH"])),
             checkpoints=JsonFileCheckpointStore(STATE_DIR / "gmail-checkpoint.json"),
             sink_root=SINK_ROOT,
             events=events,
