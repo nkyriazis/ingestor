@@ -4,22 +4,28 @@ import asyncio
 import os
 from pathlib import Path
 
+import uvicorn
+
 from ingestor.agent import Agent
 from ingestor.canonicalization import canonicalization_tool_spec
 from ingestor.checkpoint import JsonFileCheckpointStore
 from ingestor.connectors.filesystem import FilesystemConnector
 from ingestor.convert import ConvertStep
+from ingestor.events import EventBus
 from ingestor.extract import ExtractStep
 from ingestor.importers.gmail import GmailImporter
 from ingestor.importers.gmail_api import RealGmailClient
 from ingestor.llm import LlamaCppClient
 from ingestor.mcp_tools import McpGraphClient, connect_mcp, mcp_agent_tools
+from ingestor.observability import create_app
 from ingestor.pipeline import Pipeline, PipelineContext
 from ingestor.progress import JsonFileProgressStore
 
 POLL_INTERVAL_SECONDS = 60
 STATE_DIR = Path(os.environ.get("INGESTOR_STATE_DIR", "/var/lib/ingestor"))
 SINK_ROOT = Path(os.environ.get("INGESTOR_SINK_DIR", "/var/lib/ingestor/sink"))
+EVENTS_HOST = os.environ.get("INGESTOR_EVENTS_HOST", "0.0.0.0")
+EVENTS_PORT = int(os.environ.get("INGESTOR_EVENTS_PORT", "8090"))
 
 
 async def run() -> None:
@@ -41,11 +47,19 @@ async def run() -> None:
         checkpoints=JsonFileCheckpointStore(STATE_DIR / "filesystem-checkpoint.json"),
     )
     progress = JsonFileProgressStore(STATE_DIR / "pipeline-progress.json")
+    events = EventBus()
+
+    events_server = uvicorn.Server(
+        uvicorn.Config(create_app(events), host=EVENTS_HOST, port=EVENTS_PORT, log_level="info")
+    )
+    # asyncio only holds a weak reference to tasks created this way — keep
+    # events_task alive for the life of the process or it can be GC'd mid-run.
+    events_task = asyncio.create_task(events_server.serve())
 
     async with connect_mcp(os.environ["GRAPH_MCP_URL"]) as session:
         graph = McpGraphClient(session)
         agent = Agent(llm, tools=[canonicalization_tool_spec(graph), *await mcp_agent_tools(session)])
-        pipeline = Pipeline(steps=[ConvertStep(), ExtractStep()], progress=progress)
+        pipeline = Pipeline(steps=[ConvertStep(), ExtractStep()], progress=progress, events=events)
         ctx = PipelineContext(graph=graph, llm=llm, agent=agent)
 
         while True:

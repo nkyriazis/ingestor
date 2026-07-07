@@ -10,6 +10,11 @@ services:
     volumes:
       - ./config:/config:ro
       - ingestor-state:/var/lib/ingestor
+    # Bound to the host's loopback only (see ingestor/observability.py) —
+    # no auth on this endpoint, and event payloads may include snippets of
+    # real email/note content.
+    ports:
+      - "127.0.0.1:8090:8090"
     restart: unless-stopped
 
   # Local, tool-calling + vision capable LLM backend for the Agent (ADR 0002).

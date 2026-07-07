@@ -51,3 +51,7 @@ _Avoid_: Fact, Entity (as a synonym for the whole category)
 **Mention**:
 A node representing one ingestion run's extraction from a single piece of Evidence. Connects once to that Evidence and fans out to every Knowledge node/edge it touched, giving provenance a traceable path without a direct edge per fact. Also the natural home for extraction metadata (confidence, model, timestamp).
 _Avoid_: Extraction, Assertion, Observation
+
+**EventBus**:
+The async-safe, in-process publish/subscribe observers watch to see what the ingestor is doing live — Step lifecycle, item discovery, Agent activity. No persistence: a subscriber only ever sees events published while it's connected (live-tail), never a backlog. Publishers (Pipeline, Connector, Importer, Agent) never know or care whether anyone's listening — a subscriber-less EventBus is a safe no-op. Exposed externally as Server-Sent Events over HTTP, unauthenticated and bound to the local/trusted network only (see ADR 0002's reasoning) — event payloads may include snippets of real content, so this is a deliberate scope limit, not an oversight.
+_Avoid_: Logger, Message queue (no persistence, no delivery guarantees beyond "currently connected")
